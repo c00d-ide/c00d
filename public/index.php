@@ -22,6 +22,11 @@ $editorConfig = $config['editor'] ?? [];
     <title>c00d IDE</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='4' y='2' width='8' height='12' fill='%23ff0000'/><rect x='6' y='4' width='4' height='8' fill='%231e1e1e'/></svg>">
     <style>
+        @font-face {
+            font-family: 'Tiny5';
+            src: url('fonts/Tiny5-Regular.ttf') format('truetype');
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
@@ -65,9 +70,11 @@ $editorConfig = $config['editor'] ?? [];
         }
 
         .login-box h1 {
-            font-size: 32px;
+            font-family: 'Tiny5', monospace;
+            font-size: 48px;
             margin-bottom: 10px;
             color: var(--accent);
+            letter-spacing: 2px;
         }
 
         .login-box p {
@@ -128,8 +135,10 @@ $editorConfig = $config['editor'] ?? [];
         }
 
         .toolbar-title {
-            font-weight: bold;
+            font-family: 'Tiny5', monospace;
+            font-size: 24px;
             color: var(--accent);
+            letter-spacing: 1px;
         }
 
         .toolbar-btn {
@@ -267,13 +276,14 @@ $editorConfig = $config['editor'] ?? [];
         #monaco-container {
             flex: 1;
             position: relative;
+            display: flex;
         }
 
         #editor-status {
             display: flex;
             gap: 20px;
             padding: 4px 15px;
-            background: var(--accent);
+            background: var(--bg-dark);
             font-size: 12px;
         }
 
@@ -587,7 +597,7 @@ $editorConfig = $config['editor'] ?? [];
             <!-- Sidebar -->
             <div id="sidebar">
                 <div class="sidebar-header">
-                    <input type="text" id="path-input" value="/" placeholder="/">
+                    <input type="text" id="path-input" value="." placeholder=".">
                     <button class="sidebar-btn" onclick="loadDirectory()">Go</button>
                 </div>
                 <div id="file-list"></div>
@@ -924,13 +934,13 @@ $editorConfig = $config['editor'] ?? [];
 
         // File Browser
         async function loadDirectory(path) {
-            path = path || document.getElementById('path-input').value || '/';
+            path = path || document.getElementById('path-input').value || '.';
             const result = await api('list', { path });
 
             if (result.success) {
                 currentPath = result.path;
-                document.getElementById('path-input').value = result.relative_path || '/';
-                document.getElementById('current-path').textContent = result.relative_path || '/';
+                document.getElementById('path-input').value = result.relative_path || '.';
+                document.getElementById('current-path').textContent = result.relative_path || '.';
 
                 const list = document.getElementById('file-list');
                 list.innerHTML = result.items.map(item => `
