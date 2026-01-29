@@ -15,8 +15,9 @@ c00d is an open-source IDE you install on your server and access via browser. Ed
 
 - **Monaco Editor** - Same editor as VS Code
 - **File Browser** - Navigate, create, rename, delete files
-- **Integrated Terminal** - Run commands in your browser
+- **Integrated Terminal** - Run commands in your browser (with optional PTY for interactive CLI tools)
 - **AI Assistant** - Explain code, fix bugs, generate tests
+- **Auto-Updates** - Check for and install updates from within the IDE
 - **Mobile Friendly** - Full functionality on any device
 - **Password Protected** - Optional authentication
 - **SQLite Storage** - Preferences and history saved locally
@@ -130,6 +131,7 @@ return [
 c00d/
 ├── config.php           # Default config
 ├── config.local.php     # Your settings (gitignored)
+├── VERSION              # Current version number
 ├── public/
 │   ├── index.php        # IDE interface
 │   └── api.php          # API endpoint
@@ -137,9 +139,60 @@ c00d/
 │   ├── Database.php     # SQLite handler
 │   ├── IDE.php          # File/terminal operations
 │   └── AI.php           # AI integration
+├── terminal/            # Optional PTY terminal server
+│   ├── server.js        # WebSocket terminal server
+│   └── package.json     # Node.js dependencies
 └── data/
     └── c00d.db          # SQLite database (auto-created)
 ```
+
+## Advanced Terminal (Optional)
+
+The basic terminal works out of the box for simple commands. For interactive CLI tools like `claude`, `vim`, or `htop`, you can enable the full PTY terminal:
+
+```bash
+# Install terminal server dependencies
+cd terminal
+npm install
+
+# Run terminal server
+node server.js
+
+# The server runs on port 3456 by default
+```
+
+**Nginx configuration** (for HTTPS WebSocket proxy):
+
+```nginx
+location /ws/terminal {
+    proxy_pass http://127.0.0.1:3456;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 86400;
+}
+```
+
+**Running as a service** (systemd example):
+
+```ini
+[Unit]
+Description=c00d Terminal Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/path/to/c00d/terminal
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+The IDE automatically detects if the terminal server is available and falls back to basic mode if not.
 
 ## Security
 

@@ -328,12 +328,61 @@ $editorConfig = $config['editor'] ?? [];
             height: 100%;
         }
 
+        /* Simple terminal fallback */
+        #simple-terminal {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        #simple-terminal.active {
+            display: flex;
+        }
+
+        #terminal-output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+
+        .cmd-line { color: var(--success); }
+        .cmd-output { color: var(--text); }
+        .cmd-error { color: var(--accent-red); }
+
+        #terminal-input-line {
+            display: flex;
+            padding: 8px 10px;
+            background: var(--bg-darker);
+            border-top: 1px solid var(--border);
+        }
+
+        #terminal-prompt {
+            color: var(--success);
+            margin-right: 10px;
+            font-family: monospace;
+        }
+
+        #terminal-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+
         .terminal-status {
             font-size: 11px;
             color: var(--text-dim);
         }
 
         .terminal-status.connected { color: var(--success); }
+        .terminal-status.simple { color: var(--warning); }
         .terminal-status.disconnected { color: var(--accent-red); }
 
         /* AI Panel */
@@ -652,10 +701,19 @@ $editorConfig = $config['editor'] ?? [];
         <div id="terminal-panel" class="hidden">
             <div class="terminal-header">
                 <span>Terminal</span>
-                <span id="terminal-status" class="terminal-status disconnected">Disconnected</span>
+                <span id="terminal-status" class="terminal-status">Connecting...</span>
                 <button class="sidebar-btn" onclick="toggleTerminal()">×</button>
             </div>
+            <!-- xterm.js terminal (if WebSocket available) -->
             <div id="terminal-container"></div>
+            <!-- Simple terminal fallback -->
+            <div id="simple-terminal">
+                <div id="terminal-output"></div>
+                <div id="terminal-input-line">
+                    <span id="terminal-prompt">$</span>
+                    <input type="text" id="terminal-input" placeholder="Type a command...">
+                </div>
+            </div>
         </div>
     </div>
 
@@ -673,6 +731,9 @@ $editorConfig = $config['editor'] ?? [];
         let term = null;
         let terminalSocket = null;
         let fitAddon = null;
+        let terminalMode = null; // 'websocket' or 'simple'
+        let commandHistory = [];
+        let historyIndex = -1;
         const TERMINAL_WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/terminal';
 
         // Config
@@ -761,8 +822,7 @@ $editorConfig = $config['editor'] ?? [];
             // Load directory
             loadDirectory();
 
-            // Initialize terminal (lazy - created when first opened)
-            initTerminal();
+            // Terminal is lazy-loaded when first opened
 
             // AI input
             document.getElementById('ai-input').addEventListener('keydown', e => {
@@ -1066,9 +1126,9 @@ $editorConfig = $config['editor'] ?? [];
             }
         }
 
-        // Terminal (xterm.js + WebSocket)
-        function initTerminal() {
-            if (term) return; // Already initialized
+        // Terminal with WebSocket/PTY fallback to simple terminal
+        function initXterm() {
+            if (term) return;
 
             term = new Terminal({
                 cursorBlink: true,
@@ -1097,19 +1157,17 @@ $editorConfig = $config['editor'] ?? [];
             const container = document.getElementById('terminal-container');
             term.open(container);
 
-            // Handle terminal input - send to WebSocket
             term.onData(data => {
                 if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) {
                     terminalSocket.send(JSON.stringify({ type: 'input', data }));
                 }
             });
 
-            // Handle resize
             window.addEventListener('resize', fitTerminal);
         }
 
         function fitTerminal() {
-            if (fitAddon && term) {
+            if (terminalMode === 'websocket' && fitAddon && term) {
                 try {
                     fitAddon.fit();
                     if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) {
@@ -1119,83 +1177,163 @@ $editorConfig = $config['editor'] ?? [];
                             rows: term.rows
                         }));
                     }
-                } catch (e) {
-                    // Ignore fit errors when terminal not visible
-                }
+                } catch (e) {}
             }
         }
 
-        function connectTerminal() {
-            if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) {
-                return; // Already connected
-            }
+        function tryWebSocketTerminal() {
+            return new Promise((resolve) => {
+                const wsUrl = TERMINAL_WS_URL + '?cwd=' + encodeURIComponent(currentPath);
+                const timeout = setTimeout(() => {
+                    console.log('WebSocket terminal timeout, falling back to simple');
+                    resolve(false);
+                }, 3000);
 
-            const wsUrl = TERMINAL_WS_URL + '?cwd=' + encodeURIComponent(currentPath);
-            terminalSocket = new WebSocket(wsUrl);
-
-            terminalSocket.onopen = () => {
-                console.log('Terminal connected');
-                updateTerminalStatus(true);
-                term.clear();
-                term.focus();
-                setTimeout(fitTerminal, 100);
-            };
-
-            terminalSocket.onmessage = (event) => {
                 try {
-                    const msg = JSON.parse(event.data);
-                    if (msg.type === 'output') {
-                        term.write(msg.data);
-                    } else if (msg.type === 'exit') {
-                        term.writeln('\r\n[Process exited]');
-                        updateTerminalStatus(false);
-                    }
+                    terminalSocket = new WebSocket(wsUrl);
+
+                    terminalSocket.onopen = () => {
+                        clearTimeout(timeout);
+                        console.log('WebSocket terminal connected');
+                        resolve(true);
+                    };
+
+                    terminalSocket.onerror = () => {
+                        clearTimeout(timeout);
+                        resolve(false);
+                    };
+
+                    terminalSocket.onclose = () => {
+                        if (terminalMode === 'websocket') {
+                            updateTerminalStatus('disconnected');
+                        }
+                    };
+
+                    terminalSocket.onmessage = (event) => {
+                        try {
+                            const msg = JSON.parse(event.data);
+                            if (msg.type === 'output') {
+                                term.write(msg.data);
+                            } else if (msg.type === 'exit') {
+                                term.writeln('\r\n[Process exited]');
+                            }
+                        } catch (e) {}
+                    };
                 } catch (e) {
-                    console.error('Terminal message error:', e);
+                    clearTimeout(timeout);
+                    resolve(false);
                 }
-            };
-
-            terminalSocket.onclose = () => {
-                console.log('Terminal disconnected');
-                updateTerminalStatus(false);
-            };
-
-            terminalSocket.onerror = (err) => {
-                console.error('Terminal WebSocket error:', err);
-                term.writeln('\r\n[Connection error - is terminal server running?]');
-                updateTerminalStatus(false);
-            };
+            });
         }
 
-        function disconnectTerminal() {
-            if (terminalSocket) {
-                terminalSocket.close();
-                terminalSocket = null;
-            }
+        function enableWebSocketTerminal() {
+            terminalMode = 'websocket';
+            document.getElementById('terminal-container').style.display = 'block';
+            document.getElementById('simple-terminal').classList.remove('active');
+            updateTerminalStatus('connected');
+            term.clear();
+            term.focus();
+            setTimeout(fitTerminal, 100);
         }
 
-        function updateTerminalStatus(connected) {
-            const status = document.getElementById('terminal-status');
-            if (connected) {
-                status.textContent = 'Connected';
-                status.className = 'terminal-status connected';
+        function enableSimpleTerminal() {
+            terminalMode = 'simple';
+            document.getElementById('terminal-container').style.display = 'none';
+            document.getElementById('simple-terminal').classList.add('active');
+            document.getElementById('terminal-input').focus();
+            updateTerminalStatus('simple');
+
+            // Set up simple terminal input handler
+            const input = document.getElementById('terminal-input');
+            input.onkeydown = handleSimpleTerminalKey;
+        }
+
+        function updateTerminalStatus(status) {
+            const el = document.getElementById('terminal-status');
+            if (status === 'connected') {
+                el.textContent = 'PTY Connected';
+                el.className = 'terminal-status connected';
+            } else if (status === 'simple') {
+                el.textContent = 'Basic Mode';
+                el.className = 'terminal-status simple';
             } else {
-                status.textContent = 'Disconnected';
-                status.className = 'terminal-status disconnected';
+                el.textContent = 'Disconnected';
+                el.className = 'terminal-status disconnected';
             }
         }
 
-        function toggleTerminal() {
+        async function handleSimpleTerminalKey(e) {
+            if (e.key === 'Enter') {
+                const input = e.target;
+                const command = input.value.trim();
+                if (!command) return;
+
+                commandHistory.push(command);
+                historyIndex = commandHistory.length;
+                input.value = '';
+
+                appendTerminalOutput('$ ' + command, 'cmd-line');
+
+                const result = await api('exec', { command, cwd: currentPath });
+
+                if (result.output) appendTerminalOutput(result.output, 'cmd-output');
+                if (result.error_output) appendTerminalOutput(result.error_output, 'cmd-error');
+                if (result.cwd) currentPath = result.cwd;
+
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    e.target.value = commandHistory[historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    e.target.value = commandHistory[historyIndex];
+                } else {
+                    historyIndex = commandHistory.length;
+                    e.target.value = '';
+                }
+            }
+        }
+
+        function appendTerminalOutput(text, className) {
+            const output = document.getElementById('terminal-output');
+            const line = document.createElement('div');
+            line.className = className;
+            line.textContent = text;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function toggleTerminal() {
             const panel = document.getElementById('terminal-panel');
             panel.classList.toggle('hidden');
 
             if (!panel.classList.contains('hidden')) {
-                // Terminal opened
-                if (!term) initTerminal();
-                setTimeout(() => {
-                    fitTerminal();
-                    connectTerminal();
-                }, 50);
+                if (terminalMode) {
+                    // Already initialized, just focus
+                    if (terminalMode === 'websocket') {
+                        term.focus();
+                    } else {
+                        document.getElementById('terminal-input').focus();
+                    }
+                    return;
+                }
+
+                // First time opening - try WebSocket, fallback to simple
+                updateTerminalStatus('connecting');
+                initXterm();
+
+                const wsAvailable = await tryWebSocketTerminal();
+                if (wsAvailable) {
+                    enableWebSocketTerminal();
+                } else {
+                    enableSimpleTerminal();
+                    appendTerminalOutput('Basic terminal mode (interactive commands like "claude" require terminal server)', 'cmd-error');
+                    appendTerminalOutput('Setup: cd terminal && npm install && node server.js', 'cmd-output');
+                }
             }
         }
 
