@@ -258,7 +258,15 @@ class IDE {
             2 => ['pipe', 'w'],
         ];
 
-        $process = proc_open($command, $descriptors, $pipes, $workingDir, null);
+        // Set up environment with proper PATH
+        $env = [
+            'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            'HOME' => getenv('HOME') ?: '/tmp',
+            'USER' => getenv('USER') ?: 'www-data',
+            'TERM' => 'xterm-256color',
+        ];
+
+        $process = proc_open($command, $descriptors, $pipes, $workingDir, $env);
 
         if (!is_resource($process)) {
             return [
