@@ -273,10 +273,19 @@ $editorConfig = $config['editor'] ?? [];
         .tab-close:hover { opacity: 1; color: var(--accent-red); }
 
         /* Monaco */
-        #monaco-container {
+        #editor-wrapper {
             flex: 1;
             position: relative;
-            display: flex;
+        }
+
+        #monaco-container {
+            position: absolute;
+            inset: 0;
+            display: none;
+        }
+
+        #monaco-container.active {
+            display: block;
         }
 
         #editor-status {
@@ -611,7 +620,8 @@ $editorConfig = $config['editor'] ?? [];
             <!-- Editor Area -->
             <div id="editor-area">
                 <div id="tabs"></div>
-                <div id="monaco-container">
+                <div id="editor-wrapper">
+                    <div id="monaco-container"></div>
                     <div id="welcome">
                         <div>
                             <svg width="80" height="80" viewBox="0 0 16 16" fill="#ff0000" shape-rendering="crispEdges" style="margin-bottom: 20px;">
@@ -981,6 +991,7 @@ $editorConfig = $config['editor'] ?? [];
 
             switchTab(tab);
             document.getElementById('welcome').style.display = 'none';
+            document.getElementById('monaco-container').classList.add('active');
         }
 
         function switchTab(tab) {
@@ -1015,6 +1026,7 @@ $editorConfig = $config['editor'] ?? [];
                     activeTab = null;
                     editor.setValue('');
                     document.getElementById('welcome').style.display = 'flex';
+                    document.getElementById('monaco-container').classList.remove('active');
                 }
             }
             renderTabs();
