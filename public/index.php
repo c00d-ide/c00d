@@ -21,6 +21,7 @@ $editorConfig = $config['editor'] ?? [];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>c00d IDE</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='4' y='2' width='8' height='12' fill='%23ff0000'/><rect x='6' y='4' width='4' height='8' fill='%231e1e1e'/></svg>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
     <style>
         @font-face {
             font-family: 'Tiny5';
@@ -298,7 +299,7 @@ $editorConfig = $config['editor'] ?? [];
 
         /* Terminal */
         #terminal-panel {
-            height: 200px;
+            height: 250px;
             background: var(--bg-dark);
             border-top: 1px solid var(--border);
             display: flex;
@@ -314,44 +315,26 @@ $editorConfig = $config['editor'] ?? [];
             justify-content: space-between;
             align-items: center;
             font-size: 12px;
+            flex-shrink: 0;
         }
 
-        #terminal-output {
+        #terminal-container {
             flex: 1;
-            overflow-y: auto;
-            padding: 10px 15px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: <?php echo $config['terminal']['font_size'] ?? 14; ?>px;
-            white-space: pre-wrap;
-            line-height: 1.4;
+            padding: 5px;
+            overflow: hidden;
         }
 
-        .cmd-line { color: var(--success); }
-        .cmd-output { color: var(--text); }
-        .cmd-error { color: var(--accent-red); }
-
-        #terminal-input-line {
-            display: flex;
-            padding: 8px 15px;
-            background: var(--bg-darker);
-            border-top: 1px solid var(--border);
+        #terminal-container .xterm {
+            height: 100%;
         }
 
-        #terminal-prompt {
-            color: var(--success);
-            margin-right: 10px;
-            font-family: monospace;
+        .terminal-status {
+            font-size: 11px;
+            color: var(--text-dim);
         }
 
-        #terminal-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--text);
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: <?php echo $config['terminal']['font_size'] ?? 14; ?>px;
-            outline: none;
-        }
+        .terminal-status.connected { color: var(--success); }
+        .terminal-status.disconnected { color: var(--accent-red); }
 
         /* AI Panel */
         #ai-panel {
@@ -669,26 +652,28 @@ $editorConfig = $config['editor'] ?? [];
         <div id="terminal-panel" class="hidden">
             <div class="terminal-header">
                 <span>Terminal</span>
+                <span id="terminal-status" class="terminal-status disconnected">Disconnected</span>
                 <button class="sidebar-btn" onclick="toggleTerminal()">×</button>
             </div>
-            <div id="terminal-output"></div>
-            <div id="terminal-input-line">
-                <span id="terminal-prompt">$</span>
-                <input type="text" id="terminal-input" placeholder="Type a command...">
-            </div>
+            <div id="terminal-container"></div>
         </div>
     </div>
 
     <!-- Monaco Editor -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <!-- xterm.js -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
     <script>
         // State
         let editor = null;
         let openTabs = [];
         let activeTab = null;
         let currentPath = '/';
-        let commandHistory = [];
-        let historyIndex = -1;
+        let term = null;
+        let terminalSocket = null;
+        let fitAddon = null;
+        const TERMINAL_WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/terminal';
 
         // Config
         const editorConfig = <?php echo json_encode($editorConfig); ?>;
@@ -776,8 +761,8 @@ $editorConfig = $config['editor'] ?? [];
             // Load directory
             loadDirectory();
 
-            // Terminal input
-            document.getElementById('terminal-input').addEventListener('keydown', handleTerminalKey);
+            // Initialize terminal (lazy - created when first opened)
+            initTerminal();
 
             // AI input
             document.getElementById('ai-input').addEventListener('keydown', e => {
@@ -1081,58 +1066,137 @@ $editorConfig = $config['editor'] ?? [];
             }
         }
 
-        // Terminal
+        // Terminal (xterm.js + WebSocket)
+        function initTerminal() {
+            if (term) return; // Already initialized
+
+            term = new Terminal({
+                cursorBlink: true,
+                fontSize: <?php echo $config['terminal']['font_size'] ?? 14; ?>,
+                fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
+                theme: {
+                    background: '#1e1e1e',
+                    foreground: '#d4d4d4',
+                    cursor: '#d4d4d4',
+                    cursorAccent: '#1e1e1e',
+                    selection: 'rgba(255, 255, 255, 0.3)',
+                    black: '#1e1e1e',
+                    red: '#f44747',
+                    green: '#4ec9b0',
+                    yellow: '#dcdcaa',
+                    blue: '#569cd6',
+                    magenta: '#c586c0',
+                    cyan: '#9cdcfe',
+                    white: '#d4d4d4',
+                }
+            });
+
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+
+            const container = document.getElementById('terminal-container');
+            term.open(container);
+
+            // Handle terminal input - send to WebSocket
+            term.onData(data => {
+                if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) {
+                    terminalSocket.send(JSON.stringify({ type: 'input', data }));
+                }
+            });
+
+            // Handle resize
+            window.addEventListener('resize', fitTerminal);
+        }
+
+        function fitTerminal() {
+            if (fitAddon && term) {
+                try {
+                    fitAddon.fit();
+                    if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) {
+                        terminalSocket.send(JSON.stringify({
+                            type: 'resize',
+                            cols: term.cols,
+                            rows: term.rows
+                        }));
+                    }
+                } catch (e) {
+                    // Ignore fit errors when terminal not visible
+                }
+            }
+        }
+
+        function connectTerminal() {
+            if (terminalSocket && terminalSocket.readyState === WebSocket.OPEN) {
+                return; // Already connected
+            }
+
+            const wsUrl = TERMINAL_WS_URL + '?cwd=' + encodeURIComponent(currentPath);
+            terminalSocket = new WebSocket(wsUrl);
+
+            terminalSocket.onopen = () => {
+                console.log('Terminal connected');
+                updateTerminalStatus(true);
+                term.clear();
+                term.focus();
+                setTimeout(fitTerminal, 100);
+            };
+
+            terminalSocket.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'output') {
+                        term.write(msg.data);
+                    } else if (msg.type === 'exit') {
+                        term.writeln('\r\n[Process exited]');
+                        updateTerminalStatus(false);
+                    }
+                } catch (e) {
+                    console.error('Terminal message error:', e);
+                }
+            };
+
+            terminalSocket.onclose = () => {
+                console.log('Terminal disconnected');
+                updateTerminalStatus(false);
+            };
+
+            terminalSocket.onerror = (err) => {
+                console.error('Terminal WebSocket error:', err);
+                term.writeln('\r\n[Connection error - is terminal server running?]');
+                updateTerminalStatus(false);
+            };
+        }
+
+        function disconnectTerminal() {
+            if (terminalSocket) {
+                terminalSocket.close();
+                terminalSocket = null;
+            }
+        }
+
+        function updateTerminalStatus(connected) {
+            const status = document.getElementById('terminal-status');
+            if (connected) {
+                status.textContent = 'Connected';
+                status.className = 'terminal-status connected';
+            } else {
+                status.textContent = 'Disconnected';
+                status.className = 'terminal-status disconnected';
+            }
+        }
+
         function toggleTerminal() {
-            document.getElementById('terminal-panel').classList.toggle('hidden');
-            if (!document.getElementById('terminal-panel').classList.contains('hidden')) {
-                document.getElementById('terminal-input').focus();
+            const panel = document.getElementById('terminal-panel');
+            panel.classList.toggle('hidden');
+
+            if (!panel.classList.contains('hidden')) {
+                // Terminal opened
+                if (!term) initTerminal();
+                setTimeout(() => {
+                    fitTerminal();
+                    connectTerminal();
+                }, 50);
             }
-        }
-
-        async function handleTerminalKey(e) {
-            if (e.key === 'Enter') {
-                const input = e.target;
-                const command = input.value.trim();
-                if (!command) return;
-
-                commandHistory.push(command);
-                historyIndex = commandHistory.length;
-                input.value = '';
-
-                appendTerminal('$ ' + command, 'cmd-line');
-
-                const result = await api('exec', { command, cwd: currentPath });
-
-                if (result.output) appendTerminal(result.output, 'cmd-output');
-                if (result.error_output) appendTerminal(result.error_output, 'cmd-error');
-
-                if (result.cwd) currentPath = result.cwd;
-
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (historyIndex > 0) {
-                    historyIndex--;
-                    e.target.value = commandHistory[historyIndex];
-                }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (historyIndex < commandHistory.length - 1) {
-                    historyIndex++;
-                    e.target.value = commandHistory[historyIndex];
-                } else {
-                    historyIndex = commandHistory.length;
-                    e.target.value = '';
-                }
-            }
-        }
-
-        function appendTerminal(text, className) {
-            const output = document.getElementById('terminal-output');
-            const line = document.createElement('div');
-            line.className = className;
-            line.textContent = text;
-            output.appendChild(line);
-            output.scrollTop = output.scrollHeight;
         }
 
         // AI
