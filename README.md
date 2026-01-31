@@ -146,23 +146,53 @@ c00d/
     └── c00d.db          # SQLite database (auto-created)
 ```
 
-## Advanced Terminal (Optional)
+## Terminal
 
-The basic terminal works out of the box for simple commands. For interactive CLI tools like `claude`, `vim`, or `htop`, you can enable the full PTY terminal:
+c00d includes a hybrid terminal that automatically uses the best available method:
+
+| Mode | What works | Setup needed |
+|------|------------|--------------|
+| **Full PTY** | Everything (`claude`, `vim`, `htop`, etc.) | Terminal server + connection |
+| **Basic** | Simple commands (`ls`, `git`, `cat`, etc.) | None |
+
+### Quick Start (Easiest)
+
+The terminal server can be started directly from the IDE:
+
+1. Open Terminal in c00d
+2. Click **"▶ Start Terminal Server"**
+3. If using **direct port** method, open port 3456 in your firewall
+
+### Connection Methods
+
+The IDE tries these in order:
+
+1. **WebSocket Proxy** (`/ws/terminal`) - Requires web server config
+2. **Direct Port** (`:3456`) - Just needs firewall port open
+3. **Basic Mode** - Works everywhere, no interactive programs
+
+### Option A: Direct Port (Recommended for simplicity)
+
+Just open the port in your firewall:
 
 ```bash
-# Install terminal server dependencies
-cd terminal
-npm install
+# Ubuntu/Debian
+sudo ufw allow 3456
 
-# Run terminal server
-node server.js
-
-# The server runs on port 3456 by default
+# CentOS/RHEL
+sudo firewall-cmd --add-port=3456/tcp --permanent
+sudo firewall-cmd --reload
 ```
 
-**Nginx configuration** (for HTTPS WebSocket proxy):
+Then start the server from the IDE or manually:
 
+```bash
+cd terminal && npm install && node server.js
+```
+
+### Option B: WebSocket Proxy (Cleaner URLs)
+
+**Nginx:**
 ```nginx
 location /ws/terminal {
     proxy_pass http://127.0.0.1:3456;
@@ -174,8 +204,23 @@ location /ws/terminal {
 }
 ```
 
-**Running as a service** (systemd example):
+**Apache** (requires `mod_proxy_wstunnel`):
+```apache
+ProxyPass /ws/terminal ws://127.0.0.1:3456/
+ProxyPassReverse /ws/terminal ws://127.0.0.1:3456/
+```
 
+### Running as a Service
+
+**Using pm2 (recommended):**
+```bash
+npm install -g pm2
+pm2 start /path/to/c00d/terminal/server.js --name c00d-terminal
+pm2 save
+pm2 startup
+```
+
+**Using systemd:**
 ```ini
 [Unit]
 Description=c00d Terminal Server
@@ -187,12 +232,20 @@ User=www-data
 WorkingDirectory=/path/to/c00d/terminal
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
+Environment=TERMINAL_PORT=3456
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-The IDE automatically detects if the terminal server is available and falls back to basic mode if not.
+### Configuration
+
+In `config.local.php`:
+```php
+'terminal' => [
+    'server_port' => 3456,  // Change if needed
+],
+```
 
 ## Security
 
@@ -215,12 +268,16 @@ c00d is designed to work on mobile devices:
 
 ## Keyboard Shortcuts
 
+All shortcuts use `Alt` to avoid conflicting with browser shortcuts (print, zoom, etc.)
+
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+S` | Save file |
-| `Ctrl+P` | Quick open (coming soon) |
-| `Ctrl+\`` | Toggle terminal |
-| `Ctrl+B` | Toggle sidebar (coming soon) |
+| `Alt+S` | Save file |
+| `Alt+P` | Quick open (file search) |
+| `Alt+B` | Toggle sidebar |
+| `Alt+T` | Toggle terminal |
+| `Alt+G` | Toggle Git panel |
+| `Alt+A` | Toggle AI chat |
 
 ## Pro License
 

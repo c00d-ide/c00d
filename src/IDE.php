@@ -70,8 +70,14 @@ class IDE {
         $items = [];
         $files = scandir($fullPath);
 
+        // Check if we're at the base path (root)
+        $isAtRoot = ($fullPath === $this->basePath);
+
         foreach ($files as $file) {
             if ($file === '.') continue;
+
+            // Hide ".." when at the root (can't go higher)
+            if ($file === '..' && $isAtRoot) continue;
 
             // Skip hidden files if configured
             if (!$this->config['hidden_files'] && $file !== '..' && substr($file, 0, 1) === '.') {

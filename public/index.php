@@ -20,7 +20,7 @@ $editorConfig = $config['editor'] ?? [];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>c00d IDE</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='4' y='2' width='8' height='12' fill='%23ff0000'/><rect x='6' y='4' width='4' height='8' fill='%231e1e1e'/></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='4' y='2' width='8' height='12' fill='%23ff0000'/><rect x='6' y='4' width='4' height='8' fill='%23000000'/></svg>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
     <style>
         @font-face {
@@ -31,10 +31,10 @@ $editorConfig = $config['editor'] ?? [];
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg-dark: #1e1e1e;
-            --bg-darker: #252526;
-            --bg-sidebar: #252526;
-            --border: #3c3c3c;
+            --bg-dark: #000000;
+            --bg-darker: #000000;
+            --bg-sidebar: #0a0a0a;
+            --border: #222222;
             --text: #d4d4d4;
             --text-dim: #808080;
             --accent: #ff0000;
@@ -300,13 +300,37 @@ $editorConfig = $config['editor'] ?? [];
         /* Terminal */
         #terminal-panel {
             height: 250px;
+            min-height: 100px;
+            max-height: calc(100vh - 100px);
             background: var(--bg-dark);
             border-top: 1px solid var(--border);
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
         #terminal-panel.hidden { display: none; }
+
+        #terminal-panel.fullscreen {
+            height: calc(100vh - 50px) !important;
+        }
+
+        .terminal-resizer {
+            position: absolute;
+            top: -4px;
+            left: 0;
+            right: 0;
+            height: 8px;
+            cursor: ns-resize;
+            background: transparent;
+            z-index: 10;
+        }
+
+        .terminal-resizer:hover,
+        .terminal-resizer.dragging {
+            background: var(--accent);
+            opacity: 0.5;
+        }
 
         .terminal-header {
             padding: 5px 15px;
@@ -316,6 +340,67 @@ $editorConfig = $config['editor'] ?? [];
             align-items: center;
             font-size: 12px;
             flex-shrink: 0;
+        }
+
+        .terminal-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .terminal-header-right {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .terminal-size-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .terminal-size-btn:hover {
+            color: var(--text);
+        }
+
+        .terminal-server-prompt {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-dim);
+        }
+
+        .terminal-server-prompt p {
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .terminal-server-btn {
+            padding: 8px 16px;
+            background: var(--success);
+            border: none;
+            color: #000;
+            font-size: 13px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .terminal-server-btn:hover {
+            opacity: 0.9;
+        }
+
+        .terminal-server-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .terminal-server-btn.stop {
+            background: var(--accent-red);
+            color: #fff;
         }
 
         #terminal-container {
@@ -481,6 +566,190 @@ $editorConfig = $config['editor'] ?? [];
             background: var(--accent);
         }
 
+        /* Git Panel */
+        #git-panel {
+            width: 300px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #git-panel.active { display: flex; }
+
+        .git-header {
+            padding: 10px 15px;
+            background: var(--bg-darker);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .git-branch {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .git-branch-icon { color: var(--success); }
+
+        .git-sync-status {
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .git-sync-status.ahead { color: var(--success); }
+        .git-sync-status.behind { color: var(--warning); }
+
+        .git-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .git-section {
+            margin-bottom: 15px;
+        }
+
+        .git-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .git-section-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .git-section-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 11px;
+            padding: 2px 5px;
+        }
+
+        .git-section-btn:hover { color: var(--text); }
+
+        .git-file {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            gap: 8px;
+        }
+
+        .git-file:hover { background: rgba(255,255,255,0.05); }
+
+        .git-file-status {
+            width: 14px;
+            height: 14px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .git-file-status.M { background: var(--warning); color: #000; }
+        .git-file-status.A { background: var(--success); color: #000; }
+        .git-file-status.D { background: var(--accent-red); color: #fff; }
+        .git-file-status.R { background: #569cd6; color: #fff; }
+        .git-file-status.new { background: var(--success); color: #000; }
+
+        .git-file-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .git-file-actions {
+            display: none;
+            gap: 3px;
+        }
+
+        .git-file:hover .git-file-actions { display: flex; }
+
+        .git-file-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px;
+        }
+
+        .git-file-btn:hover { color: var(--text); }
+        .git-file-btn.danger:hover { color: var(--accent-red); }
+
+        .git-commit-area {
+            padding: 10px;
+            border-top: 1px solid var(--border);
+        }
+
+        #git-commit-message {
+            width: 100%;
+            padding: 8px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 13px;
+            resize: none;
+            height: 60px;
+            margin-bottom: 8px;
+        }
+
+        .git-commit-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .git-btn {
+            flex: 1;
+            padding: 6px 10px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .git-btn:hover { background: var(--border); }
+        .git-btn.primary { background: var(--accent); border-color: var(--accent); }
+        .git-btn.primary:hover { background: #cc0000; }
+        .git-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .git-empty {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 12px;
+            padding: 20px;
+        }
+
+        .git-not-repo {
+            text-align: center;
+            color: var(--text-dim);
+            padding: 40px 20px;
+        }
+
+        .git-not-repo p { margin-bottom: 10px; font-size: 13px; }
+
         /* Resizers */
         .resizer {
             background: var(--border);
@@ -496,6 +765,7 @@ $editorConfig = $config['editor'] ?? [];
             justify-content: center;
             text-align: center;
             color: var(--text-dim);
+            height: 100%;
         }
 
         #welcome h2 { color: var(--accent); margin-bottom: 15px; }
@@ -507,68 +777,22 @@ $editorConfig = $config['editor'] ?? [];
             font-family: monospace;
         }
 
-        /* Update Banner */
-        #update-banner {
-            display: none;
-            padding: 8px 15px;
+        /* Update Button */
+        .toolbar-btn.update-btn {
             background: linear-gradient(90deg, #b8860b, #daa520);
-            color: #1e1e1e;
-            font-size: 13px;
-            font-weight: 500;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-        }
-
-        #update-banner.visible {
-            display: flex;
-        }
-
-        #update-banner .update-text {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        #update-banner .update-icon {
-            font-size: 16px;
-        }
-
-        #update-banner .update-btn {
-            background: #1e1e1e;
-            color: #daa520;
+            color: #000;
             border: none;
-            padding: 5px 12px;
-            cursor: pointer;
-            font-size: 12px;
             font-weight: bold;
+            animation: pulse-update 2s infinite;
         }
 
-        #update-banner .update-btn:hover {
-            background: #2d2d2d;
+        .toolbar-btn.update-btn:hover {
+            background: linear-gradient(90deg, #daa520, #ffd700);
         }
 
-        #update-banner .update-btn.primary {
-            background: #ff0000;
-            color: white;
-        }
-
-        #update-banner .update-btn.primary:hover {
-            background: #cc0000;
-        }
-
-        #update-banner .dismiss-btn {
-            background: transparent;
-            border: none;
-            color: #1e1e1e;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 0 5px;
-            opacity: 0.7;
-        }
-
-        #update-banner .dismiss-btn:hover {
-            opacity: 1;
+        @keyframes pulse-update {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
     </style>
 </head>
@@ -579,7 +803,7 @@ $editorConfig = $config['editor'] ?? [];
             <div style="margin-bottom: 20px;">
                 <svg width="64" height="64" viewBox="0 0 16 16" fill="#ff0000" shape-rendering="crispEdges">
                     <rect x="1" y="1" width="14" height="12"/>
-                    <rect x="2" y="2" width="12" height="8" fill="#1e1e1e"/>
+                    <rect x="2" y="2" width="12" height="8" fill="#000000"/>
                     <rect x="3" y="3" width="2" height="1" fill="#ff0000"/>
                     <rect x="6" y="3" width="4" height="1" fill="#ff0000"/>
                     <rect x="3" y="5" width="3" height="1" fill="#4ec9b0"/>
@@ -592,6 +816,10 @@ $editorConfig = $config['editor'] ?? [];
             <div id="login-error" class="login-error" style="display:none"></div>
             <input type="password" id="login-password" placeholder="Password" autofocus>
             <button onclick="login()">Login</button>
+            <p style="margin-top:20px;font-size:11px;color:#666">
+                Password location: <code style="background:#222;padding:2px 6px;border-radius:3px">data/.generated_password</code><br>
+                <span style="color:#555">If file not found, run: <code style="background:#222;padding:2px 4px;border-radius:3px;font-size:10px">php -r "echo substr(hash('sha256', realpath('.'). '|c00d-fallback-salt'), 0, 16);"</code></span>
+            </p>
         </div>
     </div>
 
@@ -603,7 +831,7 @@ $editorConfig = $config['editor'] ?? [];
                 <span class="toolbar-title" style="display: flex; align-items: center; gap: 8px;">
                     <svg width="24" height="24" viewBox="0 0 16 16" fill="#ff0000" shape-rendering="crispEdges">
                         <rect x="1" y="1" width="14" height="12"/>
-                        <rect x="2" y="2" width="12" height="8" fill="#1e1e1e"/>
+                        <rect x="2" y="2" width="12" height="8" fill="#000000"/>
                         <rect x="3" y="3" width="2" height="1" fill="#ff0000"/>
                         <rect x="6" y="3" width="4" height="1" fill="#ff0000"/>
                         <rect x="3" y="5" width="3" height="1" fill="#4ec9b0"/>
@@ -616,6 +844,8 @@ $editorConfig = $config['editor'] ?? [];
             </div>
             <div class="toolbar-right">
                 <span id="ai-status" class="ai-status">AI: Loading...</span>
+                <button class="toolbar-btn update-btn" onclick="showUpdateDialog()" id="update-btn" style="display:none;" title="Update available">Update</button>
+                <button class="toolbar-btn" onclick="toggleGit()" id="git-btn">Git</button>
                 <button class="toolbar-btn" onclick="toggleTerminal()">Terminal</button>
                 <button class="toolbar-btn" onclick="toggleAI()">AI Chat</button>
                 <button class="toolbar-btn" onclick="saveFile()">Save</button>
@@ -623,16 +853,6 @@ $editorConfig = $config['editor'] ?? [];
         </div>
 
         <!-- Update Banner -->
-        <div id="update-banner">
-            <span class="update-text">
-                <span class="update-icon">&#9733;</span>
-                <span id="update-message">Update available: v<span id="update-version"></span></span>
-            </span>
-            <button class="update-btn primary" onclick="performUpdate()">Update Now</button>
-            <button class="update-btn" onclick="window.open('https://c00d.com/download', '_blank')">Download</button>
-            <button class="dismiss-btn" onclick="dismissUpdate()" title="Dismiss for 7 days">&times;</button>
-        </div>
-
         <!-- Main Content -->
         <div id="main">
             <!-- Sidebar -->
@@ -649,6 +869,29 @@ $editorConfig = $config['editor'] ?? [];
                 </div>
             </div>
 
+            <!-- Git Panel -->
+            <div id="git-panel">
+                <div class="git-header">
+                    <div class="git-branch">
+                        <span class="git-branch-icon">⎇</span>
+                        <span id="git-branch-name">main</span>
+                        <span id="git-sync-status" class="git-sync-status"></span>
+                    </div>
+                    <button class="sidebar-btn" onclick="toggleGit()">×</button>
+                </div>
+                <div id="git-content" class="git-content">
+                    <!-- Content populated by JS -->
+                </div>
+                <div class="git-commit-area">
+                    <textarea id="git-commit-message" placeholder="Commit message..."></textarea>
+                    <div class="git-commit-actions">
+                        <button class="git-btn" onclick="gitPull()" title="Pull from remote">↓ Pull</button>
+                        <button class="git-btn" onclick="gitPush()" title="Push to remote">↑ Push</button>
+                        <button class="git-btn primary" onclick="gitCommit()" id="git-commit-btn">Commit</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Editor Area -->
             <div id="editor-area">
                 <div id="tabs"></div>
@@ -658,7 +901,7 @@ $editorConfig = $config['editor'] ?? [];
                         <div>
                             <svg width="80" height="80" viewBox="0 0 16 16" fill="#ff0000" shape-rendering="crispEdges" style="margin-bottom: 20px;">
                                 <rect x="1" y="1" width="14" height="12"/>
-                                <rect x="2" y="2" width="12" height="8" fill="#1e1e1e"/>
+                                <rect x="2" y="2" width="12" height="8" fill="#000000"/>
                                 <rect x="3" y="3" width="2" height="1" fill="#ff0000"/>
                                 <rect x="6" y="3" width="4" height="1" fill="#ff0000"/>
                                 <rect x="3" y="5" width="3" height="1" fill="#4ec9b0"/>
@@ -667,7 +910,7 @@ $editorConfig = $config['editor'] ?? [];
                             </svg>
                             <h2>Welcome to c00d IDE</h2>
                             <p>Select a file from the sidebar to start editing</p>
-                            <p><kbd>Ctrl+S</kbd> Save &nbsp; <kbd>Ctrl+P</kbd> Quick Open &nbsp; <kbd>Ctrl+`</kbd> Terminal</p>
+                            <p><kbd>Alt+S</kbd> Save &nbsp; <kbd>Alt+P</kbd> Quick Open &nbsp; <kbd>Alt+B</kbd> Sidebar &nbsp; <kbd>Alt+T</kbd> Terminal &nbsp; <kbd>Alt+G</kbd> Git &nbsp; <kbd>Alt+A</kbd> AI</p>
                         </div>
                     </div>
                 </div>
@@ -699,10 +942,18 @@ $editorConfig = $config['editor'] ?? [];
 
         <!-- Terminal -->
         <div id="terminal-panel" class="hidden">
+            <div class="terminal-resizer" id="terminal-resizer"></div>
             <div class="terminal-header">
-                <span>Terminal</span>
-                <span id="terminal-status" class="terminal-status">Connecting...</span>
-                <button class="sidebar-btn" onclick="toggleTerminal()">×</button>
+                <div class="terminal-header-left">
+                    <span>Terminal</span>
+                    <span id="terminal-status" class="terminal-status">Connecting...</span>
+                </div>
+                <div class="terminal-header-right">
+                    <button class="terminal-size-btn" onclick="toggleTerminalFullscreen()" title="Toggle fullscreen (Shift+Esc)">
+                        <span id="terminal-fullscreen-icon">↑</span>
+                    </button>
+                    <button class="sidebar-btn" onclick="toggleTerminal()">×</button>
+                </div>
             </div>
             <!-- xterm.js terminal (if WebSocket available) -->
             <div id="terminal-container"></div>
@@ -734,7 +985,12 @@ $editorConfig = $config['editor'] ?? [];
         let terminalMode = null; // 'websocket' or 'simple'
         let commandHistory = [];
         let historyIndex = -1;
-        const TERMINAL_WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/terminal';
+
+        // Terminal configuration
+        const TERMINAL_WEBSOCKET_ENABLED = <?php echo ($config['terminal']['websocket_enabled'] ?? false) ? 'true' : 'false'; ?>;
+        const TERMINAL_WS_PROXY = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/terminal';
+        const TERMINAL_WS_DIRECT_PORT = <?php echo $config['terminal']['server_port'] ?? 3456; ?>;
+        const TERMINAL_WS_DIRECT = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.hostname + ':' + TERMINAL_WS_DIRECT_PORT;
 
         // Config
         const editorConfig = <?php echo json_encode($editorConfig); ?>;
@@ -743,14 +999,14 @@ $editorConfig = $config['editor'] ?? [];
         const folderIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="#dcdcaa" shape-rendering="crispEdges">
             <rect x="1" y="3" width="6" height="2"/>
             <rect x="1" y="5" width="14" height="10"/>
-            <rect x="2" y="6" width="12" height="8" fill="#252526"/>
+            <rect x="2" y="6" width="12" height="8" fill="#000000"/>
         </svg>`;
 
         const fileIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="#d4d4d4" shape-rendering="crispEdges">
             <rect x="2" y="1" width="9" height="14"/>
             <rect x="11" y="1" width="3" height="3"/>
             <rect x="11" y="4" width="3" height="11"/>
-            <rect x="3" y="2" width="7" height="12" fill="#252526"/>
+            <rect x="3" y="2" width="7" height="12" fill="#000000"/>
             <rect x="4" y="4" width="5" height="1" fill="#808080"/>
             <rect x="4" y="6" width="6" height="1" fill="#808080"/>
             <rect x="4" y="8" width="4" height="1" fill="#808080"/>
@@ -758,7 +1014,7 @@ $editorConfig = $config['editor'] ?? [];
 
         const c00dLogo = `<svg width="24" height="24" viewBox="0 0 16 16" fill="#ff0000" shape-rendering="crispEdges">
             <rect x="1" y="1" width="14" height="12"/>
-            <rect x="2" y="2" width="12" height="8" fill="#1e1e1e"/>
+            <rect x="2" y="2" width="12" height="8" fill="#000000"/>
             <rect x="3" y="3" width="2" height="1" fill="#ff0000"/>
             <rect x="6" y="3" width="4" height="1" fill="#ff0000"/>
             <rect x="3" y="5" width="3" height="1" fill="#4ec9b0"/>
@@ -787,10 +1043,33 @@ $editorConfig = $config['editor'] ?? [];
             // Initialize Monaco
             require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
             require(['vs/editor/editor.main'], () => {
+                // Define OLED-friendly theme with pure black background
+                monaco.editor.defineTheme('c00d-dark', {
+                    base: 'vs-dark',
+                    inherit: true,
+                    rules: [],
+                    colors: {
+                        'editor.background': '#000000',
+                        'editor.lineHighlightBackground': '#0a0a0a',
+                        'editorLineNumber.foreground': '#555555',
+                        'editorLineNumber.activeForeground': '#ffffff',
+                        'editor.selectionBackground': '#264f78',
+                        'editorCursor.foreground': '#ffffff',
+                        'editorWhitespace.foreground': '#333333',
+                        'editorIndentGuide.background': '#222222',
+                        'editorIndentGuide.activeBackground': '#444444',
+                        'editorGutter.background': '#000000',
+                        'minimap.background': '#000000',
+                        'scrollbarSlider.background': '#333333',
+                        'scrollbarSlider.hoverBackground': '#444444',
+                        'scrollbarSlider.activeBackground': '#555555',
+                    }
+                });
+
                 editor = monaco.editor.create(document.getElementById('monaco-container'), {
                     value: '',
                     language: 'plaintext',
-                    theme: editorConfig.theme || 'vs-dark',
+                    theme: 'c00d-dark',
                     fontSize: editorConfig.font_size || 14,
                     tabSize: editorConfig.tab_size || 4,
                     wordWrap: editorConfig.word_wrap || 'on',
@@ -815,8 +1094,8 @@ $editorConfig = $config['editor'] ?? [];
                     }
                 });
 
-                // Keyboard shortcuts
-                editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveFile);
+                // Keyboard shortcuts (using Alt to avoid browser conflicts)
+                editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyS, saveFile);
             });
 
             // Load directory
@@ -837,11 +1116,35 @@ $editorConfig = $config['editor'] ?? [];
                 if (e.key === 'Enter') loadDirectory();
             });
 
-            // Global shortcuts
+            // Global shortcuts (using Alt to avoid browser conflicts)
             document.addEventListener('keydown', e => {
-                if (e.ctrlKey && e.key === '`') {
-                    e.preventDefault();
-                    toggleTerminal();
+                if (e.altKey && !e.ctrlKey && !e.metaKey) {
+                    switch(e.key.toLowerCase()) {
+                        case 't':
+                            e.preventDefault();
+                            toggleTerminal();
+                            break;
+                        case 's':
+                            e.preventDefault();
+                            saveFile();
+                            break;
+                        case 'p':
+                            e.preventDefault();
+                            openQuickOpen();
+                            break;
+                        case 'g':
+                            e.preventDefault();
+                            toggleGit();
+                            break;
+                        case 'a':
+                            e.preventDefault();
+                            toggleAI();
+                            break;
+                        case 'b':
+                            e.preventDefault();
+                            toggleSidebar();
+                            break;
+                    }
                 }
             });
         }
@@ -900,35 +1203,42 @@ $editorConfig = $config['editor'] ?? [];
         }
 
         function showUpdateBanner(version) {
-            document.getElementById('update-version').textContent = version;
-            document.getElementById('update-banner').classList.add('visible');
+            const btn = document.getElementById('update-btn');
+            btn.style.display = 'inline-block';
+            btn.textContent = `Update (${version})`;
+            btn.title = `Update available: v${version}\nClick to update`;
         }
 
         function hideUpdateBanner() {
-            document.getElementById('update-banner').classList.remove('visible');
+            document.getElementById('update-btn').style.display = 'none';
         }
 
-        function dismissUpdate() {
-            // Dismiss for 7 days
-            const sevenDays = 7 * 24 * 60 * 60 * 1000;
-            localStorage.setItem('c00d_update_dismissed_until', (Date.now() + sevenDays).toString());
-            hideUpdateBanner();
+        function showUpdateDialog() {
+            if (!updateInfo) return;
+
+            const msg = `Update available!\n\n` +
+                `Current: v${updateInfo.local_version}\n` +
+                `New: v${updateInfo.remote_version}\n\n` +
+                `${updateInfo.changelog || ''}\n\n` +
+                `Click OK to update now, or Cancel to dismiss for 7 days.`;
+
+            if (confirm(msg)) {
+                performUpdate();
+            } else {
+                // Dismiss for 7 days
+                const sevenDays = 7 * 24 * 60 * 60 * 1000;
+                localStorage.setItem('c00d_update_dismissed_until', (Date.now() + sevenDays).toString());
+                hideUpdateBanner();
+            }
         }
 
         async function performUpdate() {
             if (!updateInfo) return;
 
-            const confirmMsg = `Update c00d IDE to version ${updateInfo.remote_version}?\n\n` +
-                `Current version: ${updateInfo.local_version}\n` +
-                `New version: ${updateInfo.remote_version}\n\n` +
-                `A backup will be created before updating.\n` +
-                `Your config.local.php and data/ will be preserved.`;
-
-            if (!confirm(confirmMsg)) return;
-
-            // Show updating message
-            const banner = document.getElementById('update-banner');
-            banner.innerHTML = '<span class="update-text"><span class="update-icon">&#8987;</span> Updating... Please wait...</span>';
+            const btn = document.getElementById('update-btn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Updating...';
+            btn.disabled = true;
 
             try {
                 const result = await api('perform_update');
@@ -942,29 +1252,13 @@ $editorConfig = $config['editor'] ?? [];
                     window.location.reload();
                 } else {
                     alert('Update failed: ' + (result.error || 'Unknown error'));
-                    // Restore banner
-                    banner.innerHTML = `
-                        <span class="update-text">
-                            <span class="update-icon">&#9733;</span>
-                            <span id="update-message">Update available: v<span id="update-version">${updateInfo.remote_version}</span></span>
-                        </span>
-                        <button class="update-btn primary" onclick="performUpdate()">Update Now</button>
-                        <button class="update-btn" onclick="window.open('https://c00d.com/download', '_blank')">Download</button>
-                        <button class="dismiss-btn" onclick="dismissUpdate()" title="Dismiss for 7 days">&times;</button>
-                    `;
+                    btn.textContent = originalText;
+                    btn.disabled = false;
                 }
             } catch (e) {
                 alert('Update failed: ' + e.message);
-                // Restore banner
-                banner.innerHTML = `
-                    <span class="update-text">
-                        <span class="update-icon">&#9733;</span>
-                        <span id="update-message">Update available: v<span id="update-version">${updateInfo.remote_version}</span></span>
-                    </span>
-                    <button class="update-btn primary" onclick="performUpdate()">Update Now</button>
-                    <button class="update-btn" onclick="window.open('https://c00d.com/download', '_blank')">Download</button>
-                    <button class="dismiss-btn" onclick="dismissUpdate()" title="Dismiss for 7 days">&times;</button>
-                `;
+                btn.textContent = originalText;
+                btn.disabled = false;
             }
         }
 
@@ -1135,12 +1429,12 @@ $editorConfig = $config['editor'] ?? [];
                 fontSize: <?php echo $config['terminal']['font_size'] ?? 14; ?>,
                 fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
                 theme: {
-                    background: '#1e1e1e',
+                    background: '#000000',
                     foreground: '#d4d4d4',
                     cursor: '#d4d4d4',
-                    cursorAccent: '#1e1e1e',
+                    cursorAccent: '#000000',
                     selection: 'rgba(255, 255, 255, 0.3)',
-                    black: '#1e1e1e',
+                    black: '#000000',
                     red: '#f44747',
                     green: '#4ec9b0',
                     yellow: '#dcdcaa',
@@ -1182,48 +1476,73 @@ $editorConfig = $config['editor'] ?? [];
         }
 
         function tryWebSocketTerminal() {
+            // Skip WebSocket if not enabled in config
+            if (!TERMINAL_WEBSOCKET_ENABLED) {
+                console.log('WebSocket terminal disabled in config');
+                return Promise.resolve(false);
+            }
+            // Try proxy URL first, then direct port
+            return tryWebSocketUrl(TERMINAL_WS_PROXY).then(success => {
+                if (success) return true;
+                console.log('Proxy WebSocket failed, trying direct port...');
+                return tryWebSocketUrl(TERMINAL_WS_DIRECT);
+            });
+        }
+
+        function tryWebSocketUrl(baseUrl) {
             return new Promise((resolve) => {
-                const wsUrl = TERMINAL_WS_URL + '?cwd=' + encodeURIComponent(currentPath);
+                const wsUrl = baseUrl + '?cwd=' + encodeURIComponent(currentPath);
                 const timeout = setTimeout(() => {
-                    console.log('WebSocket terminal timeout, falling back to simple');
+                    console.log('WebSocket timeout for ' + baseUrl);
+                    if (terminalSocket) {
+                        terminalSocket.close();
+                        terminalSocket = null;
+                    }
                     resolve(false);
                 }, 3000);
 
                 try {
-                    terminalSocket = new WebSocket(wsUrl);
+                    const ws = new WebSocket(wsUrl);
 
-                    terminalSocket.onopen = () => {
+                    ws.onopen = () => {
                         clearTimeout(timeout);
-                        console.log('WebSocket terminal connected');
+                        console.log('WebSocket connected via ' + baseUrl);
+                        terminalSocket = ws;
+                        setupWebSocketHandlers(ws);
                         resolve(true);
                     };
 
-                    terminalSocket.onerror = () => {
+                    ws.onerror = () => {
                         clearTimeout(timeout);
                         resolve(false);
                     };
 
-                    terminalSocket.onclose = () => {
-                        if (terminalMode === 'websocket') {
-                            updateTerminalStatus('disconnected');
-                        }
-                    };
-
-                    terminalSocket.onmessage = (event) => {
-                        try {
-                            const msg = JSON.parse(event.data);
-                            if (msg.type === 'output') {
-                                term.write(msg.data);
-                            } else if (msg.type === 'exit') {
-                                term.writeln('\r\n[Process exited]');
-                            }
-                        } catch (e) {}
-                    };
                 } catch (e) {
                     clearTimeout(timeout);
                     resolve(false);
                 }
             });
+        }
+
+        function setupWebSocketHandlers(ws) {
+            ws.onclose = () => {
+                if (terminalMode === 'websocket') {
+                    updateTerminalStatus('disconnected');
+                    // Show reconnect option
+                    term.writeln('\r\n\x1b[31m[Connection lost. Press Enter to reconnect]\x1b[0m');
+                }
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'output') {
+                        term.write(msg.data);
+                    } else if (msg.type === 'exit') {
+                        term.writeln('\r\n[Process exited]');
+                    }
+                } catch (e) {}
+            };
         }
 
         function enableWebSocketTerminal() {
@@ -1246,6 +1565,99 @@ $editorConfig = $config['editor'] ?? [];
             // Set up simple terminal input handler
             const input = document.getElementById('terminal-input');
             input.onkeydown = handleSimpleTerminalKey;
+        }
+
+        function showTerminalServerPrompt() {
+            const output = document.getElementById('terminal-output');
+
+            if (!TERMINAL_WEBSOCKET_ENABLED) {
+                // WebSocket terminal disabled - show simple message
+                output.innerHTML = `
+                    <div class="terminal-server-prompt">
+                        <p><strong>Basic Terminal Mode</strong></p>
+                        <p>WebSocket terminal is disabled in config for security.</p>
+                        <p style="margin-top:10px;font-size:12px;color:var(--text-dim)">
+                            The basic terminal respects base_path restrictions.<br>
+                            To enable full PTY terminal, set <code>terminal.websocket_enabled = true</code> in config.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            output.innerHTML = `
+                <div class="terminal-server-prompt">
+                    <p><strong>Full Terminal Not Connected</strong></p>
+                    <p>Interactive commands (like <code>claude</code>, <code>vim</code>, <code>htop</code>) require the PTY terminal server.</p>
+
+                    <button class="terminal-server-btn" onclick="startTerminalServer()">▶ Start Terminal Server</button>
+
+                    <p style="margin-top:20px;font-size:12px;color:var(--text-dim)">
+                        <strong>Connection attempts:</strong><br>
+                        1. WebSocket proxy (/ws/terminal) - requires web server config<br>
+                        2. Direct port (:${TERMINAL_WS_DIRECT_PORT}) - requires firewall open
+                    </p>
+
+                    <p style="margin-top:15px;font-size:11px;color:var(--text-dim)">
+                        Basic mode available below for simple commands (ls, cat, git, etc.)
+                    </p>
+                </div>
+            `;
+        }
+
+        async function startTerminalServer() {
+            const output = document.getElementById('terminal-output');
+            output.innerHTML = '<div class="terminal-server-prompt"><p>Starting terminal server...</p></div>';
+
+            try {
+                const result = await api('terminal_start');
+                if (result.success) {
+                    output.innerHTML = '<div class="terminal-server-prompt"><p style="color:var(--success)">Terminal server started! Reconnecting...</p></div>';
+
+                    // Wait a moment for server to be ready
+                    await new Promise(r => setTimeout(r, 1000));
+
+                    // Try to connect via WebSocket
+                    const wsAvailable = await tryWebSocketTerminal();
+                    if (wsAvailable) {
+                        enableWebSocketTerminal();
+                    } else {
+                        output.innerHTML = `
+                            <div class="terminal-server-prompt">
+                                <p style="color:var(--warning)">Server started but WebSocket proxy not configured.</p>
+                                <p>Add to your web server config:</p>
+                                <pre style="text-align:left;background:var(--bg-dark);padding:10px;margin:10px 0;font-size:11px">
+# Nginx
+location /ws/terminal {
+    proxy_pass http://127.0.0.1:3456;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}</pre>
+                                <button class="terminal-server-btn stop" onclick="stopTerminalServer()">■ Stop Server</button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    throw new Error(result.error || 'Failed to start');
+                }
+            } catch (e) {
+                output.innerHTML = `
+                    <div class="terminal-server-prompt">
+                        <p style="color:var(--accent-red)">Failed to start: ${escapeHtml(e.message || e.error || 'Unknown error')}</p>
+                        <button class="terminal-server-btn" onclick="startTerminalServer()">▶ Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function stopTerminalServer() {
+            try {
+                await api('terminal_stop');
+                showTerminalServerPrompt();
+            } catch (e) {
+                alert('Failed to stop server: ' + e.message);
+            }
         }
 
         function updateTerminalStatus(status) {
@@ -1331,9 +1743,118 @@ $editorConfig = $config['editor'] ?? [];
                     enableWebSocketTerminal();
                 } else {
                     enableSimpleTerminal();
-                    appendTerminalOutput('Basic terminal mode (interactive commands like "claude" require terminal server)', 'cmd-error');
-                    appendTerminalOutput('Setup: cd terminal && npm install && node server.js', 'cmd-output');
+                    showTerminalServerPrompt();
                 }
+            }
+        }
+
+        // Terminal resize functionality
+        let terminalHeight = 250;
+        let isResizing = false;
+
+        function initTerminalResizer() {
+            const resizer = document.getElementById('terminal-resizer');
+            const panel = document.getElementById('terminal-panel');
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                resizer.classList.add('dragging');
+                document.body.style.cursor = 'ns-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const containerRect = document.getElementById('main').getBoundingClientRect();
+                const newHeight = containerRect.bottom - e.clientY;
+
+                // Clamp height between min and max
+                terminalHeight = Math.max(100, Math.min(newHeight, window.innerHeight - 100));
+                panel.style.height = terminalHeight + 'px';
+                panel.classList.remove('fullscreen');
+                updateFullscreenIcon();
+
+                // Refit terminal if using xterm
+                fitTerminal();
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.getElementById('terminal-resizer').classList.remove('dragging');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+        }
+
+        function toggleTerminalFullscreen() {
+            const panel = document.getElementById('terminal-panel');
+            panel.classList.toggle('fullscreen');
+            updateFullscreenIcon();
+
+            // Refit terminal after animation
+            setTimeout(fitTerminal, 50);
+        }
+
+        function updateFullscreenIcon() {
+            const panel = document.getElementById('terminal-panel');
+            const icon = document.getElementById('terminal-fullscreen-icon');
+            if (panel.classList.contains('fullscreen')) {
+                icon.textContent = '↓';
+                icon.parentElement.title = 'Restore size (Shift+Esc)';
+            } else {
+                icon.textContent = '↑';
+                icon.parentElement.title = 'Toggle fullscreen (Shift+Esc)';
+            }
+        }
+
+        // Initialize resizer when DOM is ready
+        document.addEventListener('DOMContentLoaded', initTerminalResizer);
+
+        // Keyboard shortcut for terminal fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.shiftKey && e.key === 'Escape') {
+                const panel = document.getElementById('terminal-panel');
+                if (!panel.classList.contains('hidden')) {
+                    toggleTerminalFullscreen();
+                }
+            }
+        });
+
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.style.display = sidebar.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        // Quick Open (file search)
+        async function openQuickOpen() {
+            const query = prompt('Quick Open - Enter filename to search:');
+            if (!query || !query.trim()) return;
+
+            const result = await api('search', { query: query.trim(), path: '.' });
+            if (result.success && result.results && result.results.length > 0) {
+                // Get unique files
+                const files = [...new Set(result.results.map(r => r.file))].slice(0, 10);
+
+                if (files.length === 1) {
+                    openFile(files[0]);
+                } else {
+                    // Show selection
+                    const list = files.map((f, i) => `${i + 1}. ${f.replace(currentPath, '')}`).join('\n');
+                    const choice = prompt(`Found ${files.length} files:\n\n${list}\n\nEnter number to open:`);
+                    if (choice) {
+                        const idx = parseInt(choice) - 1;
+                        if (idx >= 0 && idx < files.length) {
+                            openFile(files[idx]);
+                        }
+                    }
+                }
+            } else {
+                alert('No files found matching: ' + query);
             }
         }
 
@@ -1419,6 +1940,246 @@ $editorConfig = $config['editor'] ?? [];
             div.innerHTML = html;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
+        }
+
+        // Git Panel
+        let gitStatus = null;
+
+        function toggleGit() {
+            const panel = document.getElementById('git-panel');
+            panel.classList.toggle('active');
+            if (panel.classList.contains('active')) {
+                refreshGitStatus();
+            }
+        }
+
+        async function refreshGitStatus() {
+            const content = document.getElementById('git-content');
+            content.innerHTML = '<div class="git-empty">Loading...</div>';
+
+            try {
+                gitStatus = await api('git_status');
+
+                if (!gitStatus.is_repo) {
+                    content.innerHTML = `
+                        <div class="git-not-repo">
+                            <p>Not a Git repository</p>
+                            <button class="git-btn" onclick="gitInit()">Initialize Repository</button>
+                        </div>
+                    `;
+                    document.getElementById('git-branch-name').textContent = '-';
+                    document.getElementById('git-sync-status').textContent = '';
+                    return;
+                }
+
+                // Update branch name
+                document.getElementById('git-branch-name').textContent = gitStatus.branch || 'HEAD';
+
+                // Update sync status
+                const syncEl = document.getElementById('git-sync-status');
+                if (gitStatus.ahead > 0 && gitStatus.behind > 0) {
+                    syncEl.textContent = `↑${gitStatus.ahead} ↓${gitStatus.behind}`;
+                    syncEl.className = 'git-sync-status';
+                } else if (gitStatus.ahead > 0) {
+                    syncEl.textContent = `↑${gitStatus.ahead}`;
+                    syncEl.className = 'git-sync-status ahead';
+                } else if (gitStatus.behind > 0) {
+                    syncEl.textContent = `↓${gitStatus.behind}`;
+                    syncEl.className = 'git-sync-status behind';
+                } else {
+                    syncEl.textContent = '';
+                }
+
+                // Render file lists
+                let html = '';
+
+                // Staged files
+                if (gitStatus.staged.length > 0) {
+                    html += `
+                        <div class="git-section">
+                            <div class="git-section-header">
+                                <span>Staged Changes (${gitStatus.staged.length})</span>
+                                <div class="git-section-actions">
+                                    <button class="git-section-btn" onclick="gitUnstageAll()" title="Unstage all">−</button>
+                                </div>
+                            </div>
+                            ${gitStatus.staged.map(f => gitFileHtml(f, true)).join('')}
+                        </div>
+                    `;
+                }
+
+                // Unstaged files
+                if (gitStatus.unstaged.length > 0) {
+                    html += `
+                        <div class="git-section">
+                            <div class="git-section-header">
+                                <span>Changes (${gitStatus.unstaged.length})</span>
+                                <div class="git-section-actions">
+                                    <button class="git-section-btn" onclick="gitStageAll()" title="Stage all">+</button>
+                                </div>
+                            </div>
+                            ${gitStatus.unstaged.map(f => gitFileHtml(f, false)).join('')}
+                        </div>
+                    `;
+                }
+
+                // Untracked files
+                if (gitStatus.untracked.length > 0) {
+                    html += `
+                        <div class="git-section">
+                            <div class="git-section-header">
+                                <span>Untracked (${gitStatus.untracked.length})</span>
+                                <div class="git-section-actions">
+                                    <button class="git-section-btn" onclick="gitStageAll()" title="Stage all">+</button>
+                                </div>
+                            </div>
+                            ${gitStatus.untracked.map(f => gitFileHtml(f, false)).join('')}
+                        </div>
+                    `;
+                }
+
+                if (!html) {
+                    html = '<div class="git-empty">No changes</div>';
+                }
+
+                content.innerHTML = html;
+
+                // Update commit button state
+                document.getElementById('git-commit-btn').disabled = gitStatus.staged.length === 0;
+
+            } catch (e) {
+                content.innerHTML = `<div class="git-empty">Error: ${e.message}</div>`;
+            }
+        }
+
+        function gitFileHtml(file, isStaged) {
+            const status = file.status;
+            const statusLabel = {
+                'M': 'M', 'A': 'A', 'D': 'D', 'R': 'R', 'new': '?'
+            }[status] || status;
+
+            const escapedFile = escapeHtml(file.file).replace(/'/g, "\\'");
+
+            return `
+                <div class="git-file" onclick="openFile('${escapedFile}')">
+                    <span class="git-file-status ${status}">${statusLabel}</span>
+                    <span class="git-file-name" title="${escapeHtml(file.file)}">${escapeHtml(file.file)}</span>
+                    <div class="git-file-actions">
+                        ${isStaged
+                            ? `<button class="git-file-btn" onclick="event.stopPropagation(); gitUnstage('${escapedFile}')" title="Unstage">−</button>`
+                            : `<button class="git-file-btn" onclick="event.stopPropagation(); gitStage('${escapedFile}')" title="Stage">+</button>
+                               <button class="git-file-btn danger" onclick="event.stopPropagation(); gitDiscard('${escapedFile}')" title="Discard changes">✕</button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        async function gitStage(file) {
+            await api('git_stage', { file });
+            refreshGitStatus();
+        }
+
+        async function gitUnstage(file) {
+            await api('git_unstage', { file });
+            refreshGitStatus();
+        }
+
+        async function gitStageAll() {
+            await api('git_stage_all');
+            refreshGitStatus();
+        }
+
+        async function gitUnstageAll() {
+            await api('git_unstage_all');
+            refreshGitStatus();
+        }
+
+        async function gitDiscard(file) {
+            if (!confirm(`Discard changes to ${file}? This cannot be undone.`)) return;
+            await api('git_discard', { file });
+            refreshGitStatus();
+            // Reload file if it's open
+            const tab = openTabs.find(t => t.path.endsWith(file));
+            if (tab) {
+                const result = await api('read', { path: tab.path });
+                if (result.success) {
+                    tab.content = result.content;
+                    tab.unsaved = false;
+                    if (tab === activeTab) {
+                        editor.setValue(tab.content);
+                    }
+                    renderTabs();
+                }
+            }
+        }
+
+        async function gitCommit() {
+            const message = document.getElementById('git-commit-message').value.trim();
+            if (!message) {
+                alert('Please enter a commit message');
+                return;
+            }
+
+            const result = await api('git_commit', { message });
+            if (result.success) {
+                document.getElementById('git-commit-message').value = '';
+                refreshGitStatus();
+            } else {
+                alert('Commit failed:\n' + (result.output || result.error));
+            }
+        }
+
+        async function gitPush() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Pushing...';
+
+            try {
+                const result = await api('git_push');
+                if (result.output && result.output.includes('error')) {
+                    alert('Push result:\n' + result.output);
+                }
+                refreshGitStatus();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '↓ Pull';
+            }
+        }
+
+        async function gitPull() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Pulling...';
+
+            try {
+                const result = await api('git_pull');
+                if (result.output) {
+                    // Refresh open files that might have changed
+                    for (const tab of openTabs) {
+                        const fileResult = await api('read', { path: tab.path });
+                        if (fileResult.success && fileResult.content !== tab.content) {
+                            tab.content = fileResult.content;
+                            if (tab === activeTab) {
+                                editor.setValue(tab.content);
+                            }
+                        }
+                    }
+                }
+                refreshGitStatus();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '↑ Push';
+            }
+        }
+
+        async function gitInit() {
+            const result = await api('exec', { command: 'git init' });
+            if (result.success) {
+                refreshGitStatus();
+            } else {
+                alert('Failed to initialize repository:\n' + result.error_output);
+            }
         }
 
         // Helpers
