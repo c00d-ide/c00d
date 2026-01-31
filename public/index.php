@@ -918,6 +918,7 @@ $editorConfig = $config['editor'] ?? [];
                     <span id="status-lang">-</span>
                     <span id="status-pos">Ln 1, Col 1</span>
                     <span id="status-saved">-</span>
+                    <span style="margin-left:auto;color:var(--text-dim)">c00d v<?php echo C00D_VERSION; ?></span>
                 </div>
             </div>
 
@@ -1040,7 +1041,12 @@ $editorConfig = $config['editor'] ?? [];
             // Check for updates (non-blocking)
             checkForUpdates();
 
-            // Initialize Monaco
+            // Initialize Monaco (only once)
+            if (editor) {
+                // Already initialized, just reload directory
+                loadDirectory();
+                return;
+            }
             require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
             require(['vs/editor/editor.main'], () => {
                 // Define OLED-friendly theme with pure black background
@@ -1331,6 +1337,8 @@ $editorConfig = $config['editor'] ?? [];
             switchTab(tab);
             document.getElementById('welcome').style.display = 'none';
             document.getElementById('monaco-container').classList.add('active');
+            // Force Monaco to recalculate layout after container becomes visible
+            setTimeout(() => editor.layout(), 0);
         }
 
         function switchTab(tab) {
