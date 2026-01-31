@@ -30,16 +30,17 @@ if (!is_dir($sessionDir)) {
 // Configure session
 ini_set('session.save_path', $sessionDir);
 ini_set('session.gc_maxlifetime', $sessionLifetime);
-ini_set('session.cookie_lifetime', $sessionLifetime);
-ini_set('session.cookie_httponly', '1');
-ini_set('session.cookie_samesite', 'Lax');
 
-// Use HTTPS-only cookies if on HTTPS
-if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
-    ini_set('session.cookie_secure', '1');
-}
-
+// Set session cookie parameters properly
 session_name('c00d_session');
+session_set_cookie_params([
+    'lifetime' => $sessionLifetime,
+    'path' => '/',
+    'domain' => '',
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
 session_start();
 
 // Security: Check password
@@ -48,6 +49,7 @@ if (!empty($config['password'])) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
             if ($_POST['password'] === $config['password']) {
                 $_SESSION['c00d_authenticated'] = true;
+                session_write_close(); // Force write session data
                 echo json_encode(['success' => true]);
                 exit;
             } else {
