@@ -1163,7 +1163,7 @@ $editorConfig = $config['editor'] ?? [];
                 formData.append(key, value);
             }
 
-            const response = await fetch('api.php', { method: 'POST', body: formData });
+            const response = await fetch('api.php', { method: 'POST', body: formData, credentials: 'same-origin' });
             return response.json();
         }
 

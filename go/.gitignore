@@ -1,0 +1,22 @@
+# Binary
+c00d
+c00d.exe
+dist/
+
+# Config with secrets
+config.yaml
+
+# Data
+.c00d/
+*.db
+*.sqlite
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

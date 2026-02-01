@@ -1,0 +1,48 @@
+# c00d Configuration
+# Copy to config.yaml and customize
+
+# Port to listen on (default: 3000)
+port: 3000
+
+# Base path for file browsing (default: current directory)
+# base_path: /var/www/myproject
+
+# Password protection (recommended!)
+# password: your-secure-password
+
+# Data directory for SQLite database (default: .c00d in base_path)
+# data_dir: /home/user/.c00d
+
+# AI Configuration
+ai:
+  # Provider: c00d, anthropic, openai, ollama
+  provider: c00d
+
+  # c00d Pro license key (for unlimited AI)
+  # Get yours at: https://c00d.com/pro
+  # license_key: your-license-key
+
+  # Or use your own API key (for anthropic/openai)
+  # api_key: sk-...
+
+  # Model to use
+  # c00d/anthropic: claude-sonnet-4-20250514, claude-3-opus-20240229
+  # openai: gpt-4o, gpt-4-turbo
+  # ollama: codellama, llama2, mistral
+  model: claude-sonnet-4-20250514
+
+  # Ollama server URL (if using ollama provider)
+  ollama_url: http://localhost:11434
+
+# Editor settings
+editor:
+  theme: vs-dark    # vs-dark, vs-light, hc-black
+  font_size: 14
+  tab_size: 4
+
+# Security settings
+security:
+  # Restrict to specific IPs (empty = allow all)
+  allowed_ips: []
+  # Require HTTPS
+  require_https: false
