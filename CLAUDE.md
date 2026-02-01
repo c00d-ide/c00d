@@ -6,9 +6,41 @@ This document provides context for LLM agents working on the c00d codebase.
 
 c00d is a self-hosted web IDE available in two versions:
 - **Go Binary** (`/go/`) - Single binary, recommended for new installs
-- **PHP Version** (`/opensource/`) - Traditional web hosting, requires PHP 8.0+
+- **PHP Version** (root of this repo) - Traditional web hosting, requires PHP 8.0+
 
-The main website (`/public/`) is a separate PHP application that serves the marketing site, downloads, pro licensing, etc.
+---
+
+## GitHub Repositories
+
+There are **two separate GitHub repositories**:
+
+### 1. Open Source Product: `github.com/c00d-ide/c00d`
+- **Contains:** The distributable c00d IDE (both Go and PHP versions)
+- **Purpose:** What users download and install
+- **Structure:**
+  ```
+  /                    # PHP version (config.php, src/, public/, terminal/)
+  /go/                 # Go version (main.go, internal/, frontend/)
+  /CLAUDE.md           # This file
+  ```
+
+### 2. Website: `github.com/alekblom/c00d` (private)
+- **Contains:** The c00d.com marketing website
+- **Purpose:** Landing page, downloads, pro licensing, user accounts
+- **Structure:**
+  ```
+  /public/             # Website frontend (templates/, styles.css)
+  /server/             # Website backend (db-queries/, misc/)
+  /go/                 # Copy of Go code (synced manually)
+  /opensource/         # Submodule/copy pointing to c00d-ide/c00d
+  ```
+
+### Workflow
+
+When making changes:
+1. **Product changes** (Go/PHP IDE) → Commit to `c00d-ide/c00d`
+2. **Website changes** (landing page, pro, etc.) → Commit to `alekblom/c00d`
+3. **If Go code changes** → Update in both repos (or sync from opensource to website)
 
 ---
 
