@@ -255,6 +255,10 @@ In `config.local.php`:
 - **Protect data folder** - `.htaccess` included, but verify
 - Don't expose on public internet without authentication
 
+### Session Handling
+
+Sessions use a cryptographically secure 256-bit random hash. Sessions persist across IP changes (useful for mobile users switching networks).
+
 ## Mobile Usage
 
 c00d is designed to work on mobile devices:
